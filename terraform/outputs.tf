@@ -81,7 +81,7 @@ output "proxmox_configuration" {
     node             = var.node
     datacenter       = var.datacenter
     storage_local    = var.storage_local
-    storage_lvm      = var.storage_lvm
+    storage_vm_disk  = var.storage_vm_disk
     bridge_interface = var.bridge_interface
     default_vlan     = var.vlan_id
     environment      = var.environment
