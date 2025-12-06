@@ -1,0 +1,51 @@
+# Environment variables and credentials
+.env
+.env.local
+*.pem
+*.key
+*.pub
+~/.ssh/*
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate*
+terraform/*.plan
+terraform/crash.log
+terraform/override.tf
+terraform/override.tf.json
+*_override.tf
+*_override.tf.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Backup files
+*.backup
+*.bak
+*.swp
+*.tmp
+
+# Documentation
+docs/*.local.md
+CLAUDE.md
+
+# SSH keys (double check)
+.ssh/
+id_rsa*
+id_ed25519*
+known_hosts
+
+# Temporary files
+tmp/
+temp/
+*.log

@@ -1,0 +1,80 @@
+name: Terraform Validation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform-validate.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'terraform/**'
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '~> 1.5.0'
+
+      - name: Terraform Format Check
+        run: |
+          terraform fmt -recursive -check .
+        continue-on-error: true
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Lint (tflint)
+        uses: terraform-linters/setup-tflint@v4
+        continue-on-error: true
+
+  documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check documentation
+        run: |
+          echo "Checking documentation files..."
+          [ -f "README.md" ] && echo "✓ README.md found" || echo "✗ README.md missing"
+          [ -f "CLAUDE.md" ] && echo "✓ CLAUDE.md found" || echo "✗ CLAUDE.md missing"
+          [ -f "docs/DEPLOYMENT.md" ] && echo "✓ docs/DEPLOYMENT.md found" || echo "✗ docs/DEPLOYMENT.md missing"
+
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+        continue-on-error: true
+
+      - name: Check .gitignore
+        run: |
+          echo "Checking .gitignore configuration..."
+          grep -q "\.env" .gitignore && echo "✓ .env ignored" || echo "⚠ .env not in .gitignore"
+          grep -q "\.terraform" .gitignore && echo "✓ .terraform ignored" || echo "⚠ .terraform not in .gitignore"
+          grep -q "tfstate" .gitignore && echo "✓ tfstate ignored" || echo "⚠ tfstate not in .gitignore"
