@@ -18,7 +18,7 @@ export TF_VAR_pve_api_url="https://pve.example.com/api2/json"
 export TF_VAR_pve_token_id="terraform@pve!token"
 export TF_VAR_pve_token_secret="xxxxx-xxxx-xxxx-xxxx-xxxxx"
 export TF_VAR_pve_user="root"
-export TF_VAR_pve_ssh_key_private="~/.ssh/terraform_id_ed25519"
+export TF_VAR_pve_ssh_key_private="~/.ssh/id_ed25519_ditec_root_terraform"
 ```
 
 #### Optional Infrastructure Variables
@@ -257,7 +257,7 @@ curl -s -k -H "Authorization: PVEAPIToken=terraform@pve!token=<secret>" \
 
 ### Test SSH Access
 ```bash
-ssh -i ~/.ssh/terraform_id_ed25519 root@pve.example.com "hostname"
+ssh -i ~/.ssh/id_ed25519_ditec_root_terraform root@pve.example.com "hostname"
 ```
 
 ### Verify Terraform Setup
@@ -266,7 +266,7 @@ cd terraform
 terraform init
 terraform validate
 terraform fmt -check
-bash ../scripts/validate.sh
+bash ./scripts/validate.sh
 ```
 
 ## Troubleshooting
@@ -298,11 +298,11 @@ pveum role info Terraform
 ### SSH Issues
 ```bash
 # Check SSH key permissions
-ls -la ~/.ssh/terraform_id_ed25519
-chmod 600 ~/.ssh/terraform_id_ed25519
+ls -la ~/.ssh/id_ed25519_ditec_root_terraform
+chmod 600 ~/.ssh/id_ed25519_ditec_root_terraform
 
 # Test SSH connection with verbose output
-ssh -vvv -i ~/.ssh/terraform_id_ed25519 root@pve.example.com
+ssh -vvv -i ~/.ssh/id_ed25519_ditec_root_terraform root@pve.example.com
 ```
 
 ## Security Best Practices

@@ -311,21 +311,22 @@ curl -s -k -X GET \
 ### Generate SSH Key (if needed)
 
 ```bash
-ssh-keygen -t ed25519 -f ~/.ssh/terraform_id_ed25519 -C "terraform@proxmox"
-chmod 600 ~/.ssh/terraform_id_ed25519
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_ditec_root_terraform -C "terraform@proxmox"
+chmod 600 ~/.ssh/id_ed25519_ditec_root_terraform
 ```
 
 ### Add Public Key to Proxmox Node
 
 ```bash
 # Copy your public key
-cat ~/.ssh/terraform_id_ed25519.pub
+cat ~/.ssh/id_ed25519_ditec_root_terraform.pub
 
 # On Proxmox node, add to authorized_keys
 # SSH into your proxmox node
 ssh root@pve.example.com
 
 # Add public key
+ssh-copy-id -i ~/.ssh/id_ed25519_ditec_root_terraform.pub root@proxmox
 cat >> /root/.ssh/authorized_keys << 'EOF'
 ssh-ed25519 AAAA... terraform@proxmox
 EOF
@@ -334,7 +335,7 @@ EOF
 ### Test SSH Access
 
 ```bash
-ssh -i ~/.ssh/terraform_id_ed25519 root@pve.example.com "echo 'SSH access working'"
+ssh -i ~/.ssh/id_ed25519_ditec_root_terraform root@pve.example.com "echo 'SSH access working'"
 ```
 
 ## Step 3: Configure Terraform Variables
@@ -349,7 +350,7 @@ TF_VAR_pve_api_url="https://pve.example.com/api2/json"        # Proxmox API endp
 TF_VAR_pve_token_id="terraform@pve!token"                     # Token ID (user@realm!tokenname)
 TF_VAR_pve_token_secret="xxxxx-xxxx-xxxx-xxxx-xxxxx"          # Token secret (from pveum output)
 TF_VAR_pve_user="root"                                         # SSH user on Proxmox node
-TF_VAR_pve_ssh_key_private="~/.ssh/terraform_id_ed25519"      # Path to SSH private key
+TF_VAR_pve_ssh_key_private="~/.ssh/id_ed25519_ditec_root_terraform"      # Path to SSH private key
 TF_VAR_pve_insecure="false"                                    # SSL verification (true only for self-signed)
 
 # Proxmox Infrastructure
@@ -375,7 +376,7 @@ export TF_VAR_pve_api_url="https://pve.example.com/api2/json"
 export TF_VAR_pve_token_id="terraform@pve!token"
 export TF_VAR_pve_token_secret="PASTE_YOUR_TOKEN_SECRET_HERE"
 export TF_VAR_pve_user="root"
-export TF_VAR_pve_ssh_key_private="~/.ssh/terraform_id_ed25519"
+export TF_VAR_pve_ssh_key_private="~/.ssh/id_ed25519_ditec_root_terraform"
 export TF_VAR_pve_insecure="false"
 
 # Proxmox Infrastructure Configuration
@@ -398,7 +399,7 @@ export TF_VAR_vlan_id="1"
 | `TF_VAR_pve_token_id` | Yes | `terraform@pve!token` | API token ID (format: user@realm!tokenname) |
 | `TF_VAR_pve_token_secret` | Yes | `xxxxx-xxxx-xxxx` | API token secret (save immediately after generation) |
 | `TF_VAR_pve_user` | Yes | `root` | SSH user for Proxmox node access |
-| `TF_VAR_pve_ssh_key_private` | Yes | `~/.ssh/terraform_id_ed25519` | Path to SSH private key |
+| `TF_VAR_pve_ssh_key_private` | Yes | `~/.ssh/id_ed25519_ditec_root_terraform` | Path to SSH private key |
 | `TF_VAR_pve_insecure` | No | `false` | Disable SSL verification (only for self-signed certs) |
 | `TF_VAR_node` | Yes | `pve` | Proxmox node name (visible in web UI) |
 | `TF_VAR_datacenter` | No | `local` | Datacenter ID |
@@ -661,14 +662,14 @@ grep storage_lvm terraform/environments/dev/terraform.tfvars
 **Solution:**
 ```bash
 # Check SSH key permissions
-chmod 600 ~/.ssh/terraform_id_ed25519
+chmod 600 ~/.ssh/id_ed25519_ditec_root_terraform
 chmod 700 ~/.ssh
 
 # Verify public key on Proxmox
-ssh-keygen -y -f ~/.ssh/terraform_id_ed25519 > ~/.ssh/terraform_id_ed25519.pub
+ssh-keygen -y -f ~/.ssh/id_ed25519_ditec_root_terraform > ~/.ssh/id_ed25519_ditec_root_terraform.pub
 
 # Test SSH
-ssh -i ~/.ssh/terraform_id_ed25519 root@pve.example.com "hostname"
+ssh -i ~/.ssh/id_ed25519_ditec_root_terraform root@pve.example.com "hostname"
 ```
 
 ### Error: "Image download timeout"
