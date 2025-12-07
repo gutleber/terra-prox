@@ -6,6 +6,10 @@ module "template" {
 
   source = "./modules/template"
 
+  providers = {
+    proxmox = proxmox
+  }
+
   node_name                 = var.node
   vm_id                     = each.value.vm_id
   vm_name                   = "${var.project_name}-${each.key}-template"
@@ -36,6 +40,10 @@ module "vm" {
   for_each = { for vm in var.vm_configs : vm.name => vm }
 
   source = "./modules/vm"
+
+  providers = {
+    proxmox = proxmox
+  }
 
   node_name        = var.node
   vm_id            = each.value.vm_id
@@ -81,6 +89,10 @@ module "lxc" {
   for_each = { for container in var.lxc_configs : container.name => container }
 
   source = "./modules/lxc"
+
+  providers = {
+    proxmox = proxmox
+  }
 
   node_name     = var.node
   container_id  = each.value.container_id
