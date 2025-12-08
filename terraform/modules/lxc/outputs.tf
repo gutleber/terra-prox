@@ -2,12 +2,12 @@
 
 output "container_id" {
   description = "Container ID"
-  value       = proxmox_virtual_environment_container.container.id
+  value       = proxmox_virtual_environment_container.container.vm_id
 }
 
 output "container_name" {
   description = "Container hostname"
-  value       = proxmox_virtual_environment_container.container.hostname
+  value       = var.container_name
 }
 
 output "node_name" {
@@ -15,12 +15,7 @@ output "node_name" {
   value       = proxmox_virtual_environment_container.container.node_name
 }
 
-output "status" {
-  description = "Container status"
-  value       = proxmox_virtual_environment_container.container.status
-}
-
 output "ip_address" {
-  description = "Primary IP address of container"
-  value       = try(proxmox_virtual_environment_container.container.network_interface[0].ip_address, null)
+  description = "Primary IP address of container (from initialization config)"
+  value       = try(var.ip_configs[0].ipv4_address, null)
 }

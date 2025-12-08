@@ -20,19 +20,6 @@ disk_discard = "on"        # Enable TRIM/DISCARD for SSDs: 'on', 'off', 'ignore'
 disk_format  = "raw"       # Disk format: 'raw' (performance), 'qcow2', 'vmdk'
 disk_ssd     = true        # Optimize for SSD storage
 
-## Disk Defaults (via Terraform Locals)
-# These defaults inherit from the root-level variables defined above
-# They can be overridden per-disk using merge(local.default_disk_config, {field = value})
-locals {
-  default_disk_config = {
-    datastore_id = var.storage_vm_disk # Inherits from storage_vm_disk variable above
-    file_format  = var.disk_format     # Inherits from disk_format variable
-    cache        = var.disk_cache      # Inherits from disk_cache variable
-    ssd          = var.disk_ssd        # Inherits from disk_ssd variable
-    discard      = var.disk_discard    # Inherits from disk_discard variable
-  }
-}
-
 ## VM Templates - Define reusable templates for cloning
 templates = {
   "ubuntu22" = {
@@ -129,26 +116,30 @@ vm_configs = [
 ## LXC Containers - Create lightweight containers
 lxc_configs = [
   {
-    name          = "dev-container-01"
-    container_id  = 200
-    os_type       = "debian"
-    os_version    = "12"
-    storage       = "local-lvm"
-    disk_size     = 10
-    volume_size   = 10
-    cores         = 1
-    cpu_units     = 512
-    memory        = 256
-    memory_swap   = 256
-    autostart     = false
-    unprivileged  = true
-    startup_order = 0
+    name              = "dev-container-01"
+    container_id      = 200
+    template_file_id  = "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst" # Update with your actual template ID from Proxmox
+    os_type           = "debian"
+    storage           = "local-lvm"
+    disk_size         = 10
+    cores             = 1
+    memory            = 256
+    memory_swap       = 256
+    autostart         = false
+    unprivileged      = true
+    startup_order     = 0
 
     network_devices = [
       {
         name    = "eth0"
         bridge  = "vmbr0"
         vlan_id = 1
+      }
+    ]
+
+    ip_configs = [
+      {
+        ipv4_address = "dhcp"
       }
     ]
 

@@ -1,5 +1,27 @@
 # modules/vm/main.tf - VM module for Proxmox (clone from template)
 
+# Create vendor-data file for LVM auto-resize (if enabled)
+resource "proxmox_virtual_environment_file" "vendor_data" {
+  count = var.enable_lvm_auto_resize ? 1 : 0
+
+  content_type = "snippets"
+  datastore_id = var.storage_snippets  # Use snippets storage (must be 'local' or similar dir-based)
+  node_name    = var.node_name
+
+  source_raw {
+    data = <<-EOT
+      #cloud-config
+      runcmd:
+        - [ sh, -c, "growpart /dev/vda 3" ]
+        - [ sh, -c, "pvresize /dev/vda3" ]
+        - [ sh, -c, "lvextend -l +100%FREE ${var.lvm_root_path}" ]
+        - [ sh, -c, "resize2fs ${var.lvm_root_path}" ]
+    EOT
+
+    file_name = "vendor-${var.vm_name}.yaml"
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "vm" {
   node_name = var.node_name
   vm_id     = var.vm_id
@@ -7,7 +29,9 @@ resource "proxmox_virtual_environment_vm" "vm" {
 
   # Clone from template
   clone {
-    vm_id = var.template_vm_id
+    vm_id        = var.template_vm_id
+    datastore_id = var.storage_vm_disk
+    full         = true # Full clone (independent copy) vs linked clone
   }
 
   # Operating system configuration
@@ -43,9 +67,19 @@ resource "proxmox_virtual_environment_vm" "vm" {
     }
   }
 
-  # Network configuration
+  # Network configuration - two branches: with or without VLAN tagging
+  # Use dedicated VLAN interface (e.g., vlan6) when vlan_id is null
   dynamic "network_device" {
-    for_each = var.network_devices
+    for_each = [for dev in var.network_devices : dev if dev.vlan_id == null]
+    content {
+      bridge   = network_device.value.bridge
+      firewall = var.enable_firewall
+    }
+  }
+
+  # Use bridge with VLAN tagging (e.g., vmbr0,tag=6) when vlan_id is provided
+  dynamic "network_device" {
+    for_each = [for dev in var.network_devices : dev if dev.vlan_id != null]
     content {
       bridge   = network_device.value.bridge
       vlan_id  = network_device.value.vlan_id
@@ -57,8 +91,12 @@ resource "proxmox_virtual_environment_vm" "vm" {
   dynamic "initialization" {
     for_each = var.enable_cloud_init ? [1] : []
     content {
-      interface = "ide2"
-      type      = "nocloud"
+      datastore_id = var.storage_local  # Where cloud-init ISO is stored (must support 'images' content type)
+      interface    = "ide2"
+      type         = "nocloud"
+
+      # Reference vendor-data file for LVM auto-resize (if enabled)
+      vendor_data_file_id = var.enable_lvm_auto_resize ? proxmox_virtual_environment_file.vendor_data[0].id : null
 
       dynamic "ip_config" {
         for_each = var.ip_configs
@@ -75,26 +113,8 @@ resource "proxmox_virtual_environment_vm" "vm" {
       }
 
       user_account {
-        keys    = var.ssh_public_keys
+        keys     = var.ssh_public_keys
         username = var.cloud_init_user
-      }
-
-      # LVM auto-resize: Automatically expand root filesystem to use full disk size
-      # Critical for VMs where disk size was increased during cloning
-      dynamic "custom" {
-        for_each = var.enable_lvm_auto_resize ? [1] : []
-        content {
-          type = "vendor-data"
-          data = base64encode(<<-EOT
-            #cloud-config
-            runcmd:
-              - [ sh, -c, "growpart /dev/vda 3" ]
-              - [ sh, -c, "pvresize /dev/vda3" ]
-              - [ sh, -c, "lvextend -l +100%FREE ${var.lvm_root_path}" ]
-              - [ sh, -c, "resize2fs ${var.lvm_root_path}" ]
-          EOT
-          )
-        }
       }
     }
   }
@@ -115,7 +135,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
 
   lifecycle {
     ignore_changes = [
-      initialization  # Ignore cloud-init changes after first deployment
+      initialization # Ignore cloud-init changes after first deployment
     ]
   }
 }
@@ -153,14 +173,17 @@ resource "proxmox_virtual_environment_firewall_rules" "vm_rules" {
   dynamic "rule" {
     for_each = var.firewall_rules
     content {
-      action      = rule.value.action
-      direction   = rule.value.direction
-      interface   = rule.value.interface
-      protocol    = rule.value.protocol
-      port        = rule.value.port
-      source      = rule.value.source
-      destination = rule.value.destination
-      comment     = rule.value.comment
+      type    = rule.value.type
+      action  = rule.value.action
+      comment = rule.value.comment
+      source  = rule.value.source
+      dest    = rule.value.dest
+      proto   = rule.value.proto
+      dport   = rule.value.dport
+      sport   = rule.value.sport
+      iface   = rule.value.iface
+      log     = rule.value.log
+      enabled = rule.value.enabled
     }
   }
 }

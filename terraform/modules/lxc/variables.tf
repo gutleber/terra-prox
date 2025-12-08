@@ -15,20 +15,19 @@ variable "container_name" {
   type        = string
 }
 
+variable "template_file_id" {
+  description = "LXC container template file ID (e.g., 'local:vztmpl/debian-12.tar.xz')"
+  type        = string
+}
+
 variable "os_type" {
-  description = "OS type (debian, ubuntu, alma, rocky, etc.)"
+  description = "OS type (debian, ubuntu, alma, rocky, alpine, etc.)"
   type        = string
   default     = "debian"
   validation {
     condition     = contains(["debian", "ubuntu", "alma", "rocky", "alpine"], var.os_type)
     error_message = "Invalid OS type."
   }
-}
-
-variable "os_version" {
-  description = "OS version (e.g., '12' for Debian 12)"
-  type        = string
-  default     = "12"
 }
 
 variable "storage" {
@@ -85,6 +84,22 @@ variable "network_devices" {
       name   = "eth0"
       bridge = "vmbr0"
       vlan_id = 1
+    }
+  ]
+}
+
+variable "ip_configs" {
+  description = "IP configuration for each network interface"
+  type = list(object({
+    ipv4_address = optional(string)
+    ipv4_gateway = optional(string)
+    ipv6_address = optional(string)
+    ipv6_gateway = optional(string)
+  }))
+  default = [
+    {
+      ipv4_address = "dhcp"
+      ipv4_gateway = null
     }
   ]
 }
@@ -157,14 +172,17 @@ variable "firewall_log_level" {
 variable "firewall_rules" {
   description = "Firewall rules"
   type = list(object({
-    action      = string
-    direction   = string
-    interface   = optional(string)
-    protocol    = optional(string)
-    port        = optional(string)
-    source      = optional(string)
-    destination = optional(string)
-    comment     = optional(string)
+    type       = optional(string)     # "in" or "out"
+    action     = optional(string)     # "ACCEPT", "DROP", "REJECT"
+    comment    = optional(string)
+    source     = optional(string)
+    dest       = optional(string)
+    proto      = optional(string)
+    dport      = optional(string)
+    sport      = optional(string)
+    iface      = optional(string)
+    log        = optional(string)
+    enabled    = optional(bool, true)
   }))
   default = []
 }

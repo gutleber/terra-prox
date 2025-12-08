@@ -46,7 +46,13 @@ variable "disk_size" {
 }
 
 variable "storage_local" {
-  description = "Storage datastore for ISOs, backups, and snippets. Common values: 'local' (dir), 'local-zfs' (ZFS), 'pbs' (PBS)"
+  description = "Storage datastore for ISOs and backups. Common values: 'local' (dir), 'files' (dir), 'local-zfs' (ZFS)"
+  type        = string
+  default     = "local"
+}
+
+variable "storage_snippets" {
+  description = "Storage datastore for cloud-init snippets. Must support 'snippets' content type. Common values: 'local' (dir)"
   type        = string
   default     = "local"
 }

@@ -11,25 +11,31 @@ resource "proxmox_virtual_environment_download_file" "image" {
   checksum_algorithm = var.image_checksum_algorithm
   overwrite          = false
 
-  lifecycle {
-    prevent_destroy = true
-  }
+  # Temporarily disabled to allow storage migration (dev-zfs uses local-zfs instead of local)
+  # Re-enable after successful migration if needed
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 }
 
-# Create cloud-init configuration
+# Create cloud-init configuration (only if vendor data is provided)
 resource "proxmox_virtual_environment_file" "vendor_data" {
+  count = var.cloud_init_vendor_data != null ? 1 : 0
+
   node_name    = var.node_name
-  datastore_id = var.storage_local
+  datastore_id = var.storage_snippets  # Use snippets storage (must be 'local' or similar dir-based)
   content_type = "snippets"
 
   source_raw {
     file_name = "${var.vm_name}-vendor-data.yaml"
-    data      = var.cloud_init_vendor_data
+    data      = base64encode(var.cloud_init_vendor_data)
   }
 
-  lifecycle {
-    prevent_destroy = true
-  }
+  # Temporarily disabled to allow storage migration (dev-zfs uses local-zfs instead of local)
+  # Re-enable after successful migration if needed
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 }
 
 # Create VM template
@@ -90,9 +96,10 @@ resource "proxmox_virtual_environment_vm" "template" {
 
   # Cloud-init configuration
   initialization {
+    datastore_id        = var.storage_local  # Where cloud-init ISO is stored (must support 'images' content type)
     interface           = "ide2"
     type                = "nocloud"
-    vendor_data_file_id = "${var.storage_local}:snippets/${var.vm_name}-vendor-data.yaml"
+    vendor_data_file_id = var.cloud_init_vendor_data != null ? "${var.storage_snippets}:snippets/${var.vm_name}-vendor-data.yaml" : null  # Vendor-data file is stored in snippets storage
 
     ip_config {
       ipv4 {

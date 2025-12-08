@@ -17,10 +17,5 @@ output "node_name" {
 
 output "ip_address" {
   description = "Primary IP address of VM (if available)"
-  value       = try(proxmox_virtual_environment_vm.vm.initialization[0].ip_config[0].ipv4.address, null)
-}
-
-output "status" {
-  description = "VM status"
-  value       = proxmox_virtual_environment_vm.vm.status
+  value       = try(proxmox_virtual_environment_vm.vm.initialization[0].ip_config[0].ipv4[0].address, null)
 }

@@ -81,7 +81,13 @@ variable "datacenter" {
 }
 
 variable "storage_local" {
-  description = "Storage datastore ID for ISOs, backups, and snippets. Common values: 'local' (dir), 'local-zfs' (ZFS), 'pbs' (Proxmox Backup Server)"
+  description = "Storage datastore ID for ISOs and backups. Common values: 'local' (dir), 'files' (dir), 'local-zfs' (ZFS)"
+  type        = string
+  default     = "local"
+}
+
+variable "storage_snippets" {
+  description = "Storage datastore ID for cloud-init snippets. Must support 'snippets' content type. Common values: 'local' (dir)"
   type        = string
   default     = "local"
 }
@@ -99,9 +105,8 @@ variable "bridge_interface" {
 }
 
 variable "vlan_id" {
-  description = "VLAN ID for network isolation"
-  type        = number
-  default     = 1
+  description = "VLAN ID for network isolation (null = no VLAN tag, number = VLAN tag ID)"
+  default     = null
 }
 
 ## Storage & Disk Configuration Variables
@@ -162,75 +167,6 @@ variable "default_machine_type" {
   }
 }
 
-## Image Configuration Variables
-variable "image_filename" {
-  description = "Filename for downloaded cloud image"
-  type        = string
-  default     = null
-}
-
-variable "image_url" {
-  description = "URL to download cloud image from"
-  type        = string
-}
-
-variable "image_checksum" {
-  description = "Checksum value of the image"
-  type        = string
-}
-
-variable "image_checksum_algorithm" {
-  description = "Checksum algorithm (sha256, sha512, etc.)"
-  type        = string
-  default     = "sha256"
-}
-
-## VM Template Configuration Variables
-variable "vm_id" {
-  description = "VM ID for template"
-  type        = number
-}
-
-variable "vm_name" {
-  description = "VM name (must be alphanumeric with optional dashes)"
-  type        = string
-  default     = null
-}
-
-variable "vm_bios" {
-  description = "VM BIOS type (seabios or ovmf)"
-  type        = string
-  default     = "seabios"
-  validation {
-    condition     = contains(["seabios", "ovmf"], var.vm_bios)
-    error_message = "BIOS must be 'seabios' or 'ovmf'."
-  }
-}
-
-variable "vm_cores" {
-  description = "Number of CPU cores for template"
-  type        = number
-  default     = 2
-}
-
-variable "vm_memory" {
-  description = "Memory in MB for template"
-  type        = number
-  default     = 2048
-}
-
-variable "vm_disk_size" {
-  description = "Disk size in GB for template"
-  type        = number
-  default     = 20
-}
-
-variable "vm_machine_type" {
-  description = "Machine type (q35, i440fx, etc.)"
-  type        = string
-  default     = "q35"
-}
-
 ## LXC Configuration Variables
 variable "lxc_template_name" {
   description = "Name of LXC template to use"
@@ -267,28 +203,28 @@ variable "templates" {
 variable "vm_configs" {
   description = "List of VM configurations to create"
   type = list(object({
-    name             = string
-    template         = string                    # Template key from templates map
-    vm_id            = number
-    cores            = optional(number, 2)
-    memory           = optional(number, 2048)
-    disk_size        = optional(number, 20)
-    autostart        = optional(bool, false)
+    name              = string
+    template          = string # Template key from templates map
+    vm_id             = number
+    cores             = optional(number, 2)
+    memory            = optional(number, 2048)
+    disk_size         = optional(number, 20)
+    autostart         = optional(bool, false)
     enable_cloud_init = optional(bool, true)
-    cloud_init_user  = optional(string, "debian")
-    ssh_public_keys  = optional(list(string), [])
+    cloud_init_user   = optional(string, "debian")
+    ssh_public_keys   = optional(list(string), [])
 
     # Network configuration
     network_devices = optional(list(object({
       bridge  = optional(string, "vmbr0")
-      vlan_id = optional(number, 1)
-    })), [{ bridge = "vmbr0", vlan_id = 1 }])
+      vlan_id = optional(number, null)  # null = no VLAN tag (use bridge directly), number = VLAN tag ID
+    })), [{ bridge = "vmbr0", vlan_id = null }])
 
     ip_configs = optional(list(object({
-      ipv4_address  = optional(string, "dhcp")
-      ipv4_gateway  = optional(string)
-      ipv6_address  = optional(string)
-      ipv6_gateway  = optional(string)
+      ipv4_address = optional(string, "dhcp")
+      ipv4_gateway = optional(string)
+      ipv6_address = optional(string)
+      ipv6_gateway = optional(string)
     })), [])
 
     # Storage configuration
@@ -303,26 +239,29 @@ variable "vm_configs" {
     })), [])
 
     # Operating system and hardware configuration
-    os_type              = optional(string, "l26")  # Linux kernel
-    memory_ballooning    = optional(bool, true)     # Enable memory ballooning (50% floating)
-    startup_order        = optional(number)         # VM startup order (null = no ordering)
-    startup_up_delay     = optional(number, 10)     # Delay before starting next VM
-    startup_down_delay   = optional(number, 10)     # Delay during shutdown
-    enable_lvm_auto_resize = optional(bool, true)   # Auto-expand LVM on boot
-    lvm_root_path        = optional(string, "/dev/mapper/pve-root")  # Path to LVM root (e.g., /dev/mapper/vg0-root)
+    os_type                = optional(string, "l26")                  # Linux kernel
+    memory_ballooning      = optional(bool, true)                     # Enable memory ballooning (50% floating)
+    startup_order          = optional(number)                         # VM startup order (null = no ordering)
+    startup_up_delay       = optional(number, 10)                     # Delay before starting next VM
+    startup_down_delay     = optional(number, 10)                     # Delay during shutdown
+    enable_lvm_auto_resize = optional(bool, true)                     # Auto-expand LVM on boot
+    lvm_root_path          = optional(string, "/dev/mapper/pve-root") # Path to LVM root (e.g., /dev/mapper/vg0-root)
 
     # Firewall configuration
     enable_firewall    = optional(bool, false)
-    firewall_log_level = optional(string, "info")   # info, nolog, alert, audit
+    firewall_log_level = optional(string, "info") # info, nolog, alert, audit
     firewall_rules = optional(list(object({
-      action      = string
-      direction   = string
-      interface   = optional(string)
-      protocol    = optional(string)
-      port        = optional(string)
-      source      = optional(string)
-      destination = optional(string)
-      comment     = optional(string)
+      type    = optional(string) # "in" or "out"
+      action  = optional(string) # "ACCEPT", "DROP", "REJECT"
+      comment = optional(string)
+      source  = optional(string)
+      dest    = optional(string)
+      proto   = optional(string)
+      dport   = optional(string)
+      sport   = optional(string)
+      iface   = optional(string)
+      log     = optional(string)
+      enabled = optional(bool, true)
     })), [])
 
     # Tags
@@ -335,29 +274,37 @@ variable "vm_configs" {
 variable "lxc_configs" {
   description = "List of LXC container configurations to create"
   type = list(object({
-    name            = string
-    container_id    = number
-    os_type         = optional(string, "debian")
-    os_version      = optional(string, "12")
-    storage         = optional(string, "local-lvm")
-    disk_size       = optional(number, 10)
-    volume_size     = optional(number, 10)
-    cores           = optional(number, 1)
-    cpu_units       = optional(number, 1024)
-    memory          = optional(number, 512)
-    memory_swap     = optional(number, 512)
-    autostart       = optional(bool, false)
-    unprivileged    = optional(bool, true)
-    startup_order   = optional(number, 0)
-    startup_delay   = optional(number, 0)
-    shutdown_delay  = optional(number, 0)
+    name             = string
+    container_id     = number
+    template_file_id = string # Required: LXC template file ID (e.g., "local:vztmpl/debian-12.tar.xz")
+    os_type          = optional(string, "debian")
+    storage          = optional(string, "local-lvm")
+    disk_size        = optional(number, 10)
+    volume_size      = optional(number, 10)
+    cores            = optional(number, 1)
+    cpu_units        = optional(number, 1024)
+    memory           = optional(number, 512)
+    memory_swap      = optional(number, 512)
+    autostart        = optional(bool, false)
+    unprivileged     = optional(bool, true)
+    startup_order    = optional(number, 0)
+    startup_delay    = optional(number, 0)
+    shutdown_delay   = optional(number, 0)
 
     # Network configuration
     network_devices = optional(list(object({
       name    = optional(string, "eth0")
       bridge  = optional(string, "vmbr0")
-      vlan_id = optional(number, 1)
-    })), [{ name = "eth0", bridge = "vmbr0", vlan_id = 1 }])
+      vlan_id = optional(number, null)  # null = no VLAN tag (use bridge directly), number = VLAN tag ID
+    })), [{ name = "eth0", bridge = "vmbr0", vlan_id = null }])
+
+    # IP configuration
+    ip_configs = optional(list(object({
+      ipv4_address = optional(string)
+      ipv4_gateway = optional(string)
+      ipv6_address = optional(string)
+      ipv6_gateway = optional(string)
+    })), [{ ipv4_address = "dhcp" }])
 
     dns_servers = optional(list(string), ["8.8.8.8", "8.8.4.4"])
 
@@ -368,15 +315,18 @@ variable "lxc_configs" {
     # Firewall configuration
     enable_firewall    = optional(bool, false)
     firewall_log_level = optional(string, "info")
-    firewall_rules     = optional(list(object({
-      action      = string
-      direction   = string
-      interface   = optional(string)
-      protocol    = optional(string)
-      port        = optional(string)
-      source      = optional(string)
-      destination = optional(string)
-      comment     = optional(string)
+    firewall_rules = optional(list(object({
+      type    = optional(string) # "in" or "out"
+      action  = optional(string) # "ACCEPT", "DROP", "REJECT"
+      comment = optional(string)
+      source  = optional(string)
+      dest    = optional(string)
+      proto   = optional(string)
+      dport   = optional(string)
+      sport   = optional(string)
+      iface   = optional(string)
+      log     = optional(string)
+      enabled = optional(bool, true)
     })), [])
 
     # Tags

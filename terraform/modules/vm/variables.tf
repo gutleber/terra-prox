@@ -20,6 +20,12 @@ variable "template_vm_id" {
   type        = number
 }
 
+variable "storage_vm_disk" {
+  description = "Storage location for VM disks (e.g., 'local-lvm', 'local-zfs')"
+  type        = string
+  default     = "local-lvm"
+}
+
 variable "os_type" {
   description = "Operating system type (l26=Linux, w=Windows)"
   type        = string
@@ -96,6 +102,18 @@ variable "cloud_init_user" {
   default     = "debian"
 }
 
+variable "storage_local" {
+  description = "Storage datastore ID for ISOs. Must support 'images' content type (e.g., 'files')"
+  type        = string
+  default     = "local"
+}
+
+variable "storage_snippets" {
+  description = "Storage datastore ID where cloud-init snippets are stored. Must support 'snippets' content type (e.g., 'local')"
+  type        = string
+  default     = "local"
+}
+
 variable "ssh_public_keys" {
   description = "SSH public keys to add to cloud-init"
   type        = list(string)
@@ -160,14 +178,17 @@ variable "firewall_log_level" {
 variable "firewall_rules" {
   description = "Firewall rules for VM"
   type = list(object({
-    action      = string
-    direction   = string
-    interface   = optional(string)
-    protocol    = optional(string)
-    port        = optional(string)
-    source      = optional(string)
-    destination = optional(string)
-    comment     = optional(string)
+    type       = optional(string)     # "in" or "out"
+    action     = optional(string)     # "ACCEPT", "DROP", "REJECT"
+    comment    = optional(string)
+    source     = optional(string)
+    dest       = optional(string)
+    proto      = optional(string)
+    dport      = optional(string)
+    sport      = optional(string)
+    iface      = optional(string)
+    log        = optional(string)
+    enabled    = optional(bool, true)
   }))
   default = []
 }

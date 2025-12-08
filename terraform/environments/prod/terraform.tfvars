@@ -20,19 +20,6 @@ disk_discard = "on"        # Enable TRIM/DISCARD for SSDs: 'on', 'off', 'ignore'
 disk_format  = "raw"       # Disk format: 'raw' (performance), 'qcow2', 'vmdk'
 disk_ssd     = true        # Optimize for SSD storage
 
-## Disk Defaults (via Terraform Locals)
-# These defaults inherit from the root-level variables defined above
-# They can be overridden per-disk using merge(local.default_disk_config, {field = value})
-locals {
-  default_disk_config = {
-    datastore_id = var.storage_vm_disk # Inherits from storage_vm_disk variable above
-    file_format  = var.disk_format     # Inherits from disk_format variable
-    cache        = var.disk_cache      # Inherits from disk_cache variable
-    ssd          = var.disk_ssd        # Inherits from disk_ssd variable
-    discard      = var.disk_discard    # Inherits from disk_discard variable
-  }
-}
-
 ## VM Templates - Multiple template options
 templates = {
   "ubuntu22-prod" = {
@@ -455,26 +442,30 @@ vm_configs = [
 ## LXC Containers - Support services
 lxc_configs = [
   {
-    name          = "prod-monitor"
-    container_id  = 200
-    os_type       = "debian"
-    os_version    = "12"
-    storage       = "local-lvm"
-    disk_size     = 50
-    volume_size   = 50
-    cores         = 4
-    cpu_units     = 2048
-    memory        = 2048
-    memory_swap   = 2048
-    autostart     = true
-    unprivileged  = true
-    startup_order = 1
+    name              = "prod-monitor"
+    container_id      = 200
+    template_file_id  = "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst" # Update with your actual template ID from Proxmox
+    os_type           = "debian"
+    storage           = "local-lvm"
+    disk_size         = 50
+    cores             = 4
+    memory            = 2048
+    memory_swap       = 2048
+    autostart         = true
+    unprivileged      = true
+    startup_order     = 1
 
     network_devices = [
       {
         name    = "eth0"
         bridge  = "vmbr0"
         vlan_id = 10
+      }
+    ]
+
+    ip_configs = [
+      {
+        ipv4_address = "dhcp"
       }
     ]
 
@@ -485,20 +476,20 @@ lxc_configs = [
     enable_firewall = true
     firewall_rules = [
       {
-        action    = "ACCEPT"
-        direction = "IN"
-        protocol  = "tcp"
-        port      = "9090"
-        source    = "192.168.10.0/24"
-        comment   = "Prometheus"
+        type    = "in"
+        action  = "ACCEPT"
+        proto   = "tcp"
+        dport   = "9090"
+        source  = "192.168.10.0/24"
+        comment = "Prometheus"
       },
       {
-        action    = "ACCEPT"
-        direction = "IN"
-        protocol  = "tcp"
-        port      = "3000"
-        source    = "192.168.10.0/24"
-        comment   = "Grafana"
+        type    = "in"
+        action  = "ACCEPT"
+        proto   = "tcp"
+        dport   = "3000"
+        source  = "192.168.10.0/24"
+        comment = "Grafana"
       }
     ]
 
@@ -506,26 +497,30 @@ lxc_configs = [
   },
 
   {
-    name          = "prod-logging"
-    container_id  = 201
-    os_type       = "debian"
-    os_version    = "12"
-    storage       = "local-lvm"
-    disk_size     = 100
-    volume_size   = 100
-    cores         = 4
-    cpu_units     = 2048
-    memory        = 4096
-    memory_swap   = 4096
-    autostart     = true
-    unprivileged  = true
-    startup_order = 2
+    name              = "prod-logging"
+    container_id      = 201
+    template_file_id  = "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst" # Update with your actual template ID from Proxmox
+    os_type           = "debian"
+    storage           = "local-lvm"
+    disk_size         = 100
+    cores             = 4
+    memory            = 4096
+    memory_swap       = 4096
+    autostart         = true
+    unprivileged      = true
+    startup_order     = 2
 
     network_devices = [
       {
         name    = "eth0"
         bridge  = "vmbr0"
         vlan_id = 10
+      }
+    ]
+
+    ip_configs = [
+      {
+        ipv4_address = "dhcp"
       }
     ]
 
@@ -536,20 +531,20 @@ lxc_configs = [
     enable_firewall = true
     firewall_rules = [
       {
-        action    = "ACCEPT"
-        direction = "IN"
-        protocol  = "tcp"
-        port      = "9200"
-        source    = "192.168.10.0/24"
-        comment   = "Elasticsearch"
+        type    = "in"
+        action  = "ACCEPT"
+        proto   = "tcp"
+        dport   = "9200"
+        source  = "192.168.10.0/24"
+        comment = "Elasticsearch"
       },
       {
-        action    = "ACCEPT"
-        direction = "IN"
-        protocol  = "tcp"
-        port      = "5044"
-        source    = "192.168.10.0/24"
-        comment   = "Logstash"
+        type    = "in"
+        action  = "ACCEPT"
+        proto   = "tcp"
+        dport   = "5044"
+        source  = "192.168.10.0/24"
+        comment = "Logstash"
       }
     ]
 
@@ -557,26 +552,30 @@ lxc_configs = [
   },
 
   {
-    name          = "prod-backup"
-    container_id  = 202
-    os_type       = "debian"
-    os_version    = "12"
-    storage       = "local-lvm"
-    disk_size     = 500
-    volume_size   = 500
-    cores         = 4
-    cpu_units     = 2048
-    memory        = 2048
-    memory_swap   = 2048
-    autostart     = true
-    unprivileged  = true
-    startup_order = 3
+    name              = "prod-backup"
+    container_id      = 202
+    template_file_id  = "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst" # Update with your actual template ID from Proxmox
+    os_type           = "debian"
+    storage           = "local-lvm"
+    disk_size         = 500
+    cores             = 4
+    memory            = 2048
+    memory_swap       = 2048
+    autostart         = true
+    unprivileged      = true
+    startup_order     = 3
 
     network_devices = [
       {
         name    = "eth0"
         bridge  = "vmbr0"
         vlan_id = 10
+      }
+    ]
+
+    ip_configs = [
+      {
+        ipv4_address = "dhcp"
       }
     ]
 
@@ -587,20 +586,20 @@ lxc_configs = [
     enable_firewall = true
     firewall_rules = [
       {
-        action    = "ACCEPT"
-        direction = "IN"
-        protocol  = "tcp"
-        port      = "22"
-        source    = "192.168.10.0/24"
-        comment   = "SSH"
+        type    = "in"
+        action  = "ACCEPT"
+        proto   = "tcp"
+        dport   = "22"
+        source  = "192.168.10.0/24"
+        comment = "SSH"
       },
       {
-        action    = "ACCEPT"
-        direction = "IN"
-        protocol  = "tcp"
-        port      = "873"
-        source    = "192.168.10.0/24"
-        comment   = "Rsync"
+        type    = "in"
+        action  = "ACCEPT"
+        proto   = "tcp"
+        dport   = "873"
+        source  = "192.168.10.0/24"
+        comment = "Rsync"
       }
     ]
 

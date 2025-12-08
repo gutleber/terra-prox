@@ -11,33 +11,21 @@
 environment  = "dev"
 project_name = "proxmox-dev-zfs"
 
-## Proxmox Configuration - ZFS RAID1 Setup
+## Proxmox Configuration - ZFS RAID1 Setup (Mixed Storage)
 # Update node name and bridge if different from your setup
 node             = "prox01"    # Your Proxmox node name (e.g., 'pve', 'proxmox1', 'pve1')
 datacenter       = "local"     # Datacenter ID (usually 'local')
-storage_local    = "local-zfs" # ZFS storage for ISOs, backups, snippets
-storage_vm_disk  = "local-zfs" # ZFS storage for VM disks (same pool for simplicity)
-bridge_interface = "vmbr0"     # Network bridge interface name
-vlan_id          = 1           # Default VLAN ID
+storage_local    = "files"     # Directory storage for ISOs (has image/iso support)
+storage_snippets = "local"     # Directory storage for cloud-init snippets (has snippets support)
+storage_vm_disk  = "local-zfs" # ZFS storage for VM disks and containers
+bridge_interface = "vlan34"    # Network bridge interface name (use existing VLAN interface, same as working VM 300)
+vlan_id          = null        # VLAN ID (null when using dedicated VLAN interface)
 
 ## Storage & Disk Configuration (for ZFS)
 disk_cache   = "writeback" # Disk cache: 'writeback' (fast), 'writethrough' (safe), 'unsafe' (fastest)
 disk_discard = "on"        # Enable TRIM/DISCARD for SSDs: 'on', 'off', 'ignore'
 disk_format  = "raw"       # Disk format: 'raw' (performance), 'qcow2', 'vmdk'
 disk_ssd     = true        # Optimize for SSD storage
-
-## Disk Defaults (via Terraform Locals)
-# These defaults inherit from the root-level variables defined above
-# They can be overridden per-disk using merge(local.default_disk_config, {field = value})
-locals {
-  default_disk_config = {
-    datastore_id = var.storage_vm_disk # Inherits from storage_vm_disk variable above (local-zfs)
-    file_format  = var.disk_format     # Inherits from disk_format variable
-    cache        = var.disk_cache      # Inherits from disk_cache variable
-    ssd          = var.disk_ssd        # Inherits from disk_ssd variable
-    discard      = var.disk_discard    # Inherits from disk_discard variable
-  }
-}
 
 ## VM Templates - Define reusable templates for cloning
 # Both templates will be stored on local-zfs
@@ -53,6 +41,28 @@ templates = {
     cores                    = 2
     memory                   = 2048
     disk_size                = 20
+    cloud_init_vendor_data   = <<-EOT
+      #cloud-config
+      # Update system packages
+      package_update: true
+      package_upgrade: true
+      packages:
+        - curl
+        - wget
+        - git
+        - vim
+        - qemu-guest-agent
+
+      # Set timezone
+      timezone: Europe/Bratislava
+
+      # Configure hostname
+      hostname: ubuntu-template
+
+      # Run custom commands
+      runcmd:
+        - echo "Ubuntu 22.04 template configured by Terraform"
+    EOT
   }
 
   "debian12" = {
@@ -66,6 +76,25 @@ templates = {
     cores                    = 2
     memory                   = 2048
     disk_size                = 20
+    cloud_init_vendor_data   = <<-EOT
+      #cloud-config
+      # Update system packages
+      package_update: true
+      package_upgrade: true
+      packages:
+        - curl
+        - wget
+        - git
+        - vim
+        - qemu-guest-agent
+
+      # Set timezone
+      timezone: Europe/Bratislava
+
+      # Run custom commands
+      runcmd:
+        - echo "Debian 12 template configured by Terraform"
+    EOT
   }
 }
 
@@ -74,20 +103,21 @@ templates = {
 # All VMs will use local-zfs storage
 vm_configs = [
   {
-    name              = "dev-web-01"
-    template          = "ubuntu22" # Reference the template key
-    vm_id             = 100
-    cores             = 2
-    memory            = 2048
-    disk_size         = 20
-    autostart         = false
-    enable_cloud_init = true
-    cloud_init_user   = "ubuntu"
+    name                   = "dev-web-01"
+    template               = "ubuntu22" # Reference the template key
+    vm_id                  = 100
+    cores                  = 2
+    memory                 = 2048
+    disk_size              = 20
+    autostart              = false
+    enable_cloud_init      = true
+    enable_lvm_auto_resize = true # Enable LVM auto-resize on disk expansion
+    cloud_init_user        = "ubuntu"
 
     network_devices = [
       {
-        bridge  = "vmbr0"
-        vlan_id = 1
+        bridge  = "vlan34"
+        vlan_id = null
       }
     ]
 
@@ -104,20 +134,21 @@ vm_configs = [
   },
 
   {
-    name              = "dev-app-01"
-    template          = "debian12" # Different template
-    vm_id             = 101
-    cores             = 2
-    memory            = 1024
-    disk_size         = 15
-    autostart         = false
-    enable_cloud_init = true
-    cloud_init_user   = "debian"
+    name                   = "dev-app-01"
+    template               = "debian12" # Different template
+    vm_id                  = 101
+    cores                  = 2
+    memory                 = 1024
+    disk_size              = 15
+    autostart              = false
+    enable_lvm_auto_resize = true # Enable LVM auto-resize on disk expansion
+    enable_cloud_init      = true
+    cloud_init_user        = "debian"
 
     network_devices = [
       {
-        bridge  = "vmbr0"
-        vlan_id = 1
+        bridge  = "vlan34"
+        vlan_id = null
       }
     ]
 
@@ -135,34 +166,40 @@ vm_configs = [
 ]
 
 ## LXC Container Configuration
-lxc_configs = [
-  {
-    name         = "dev-monitor-01"
-    container_id = 200
-    os_type      = "debian"
-    os_version   = "12"
-    storage      = "local-zfs" # ZFS storage for container
-    disk_size    = 10
-    memory       = 512
-    memory_swap  = 1024
-    cores        = 2
-    unprivileged = true
-    autostart    = false
+# lxc_configs = [
+#   {
+#     name              = "dev-monitor-01"
+#     container_id      = 200
+#     template_file_id  = "local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst" # Update with your actual template ID from Proxmox
+#     os_type           = "debian"
+#     storage           = "local-zfs" # ZFS storage for container
+#     disk_size         = 10
+#     memory            = 512
+#     memory_swap       = 1024
+#     cores             = 2
+#     unprivileged      = true
+#     autostart         = false
 
-    network_devices = [
-      {
-        bridge = "vmbr0"
-        vlan   = 1
-        mtu    = 1500
-      }
-    ]
+#     network_devices = [
+#       {
+#         name    = "eth0"
+#         bridge  = "vmbr0"
+#         vlan_id = 1
+#       }
+#     ]
 
-    dns_servers     = []
-    enable_firewall = false
-    firewall_rules  = []
-    tags            = ["dev", "monitoring"]
-  }
-]
+#     ip_configs = [
+#       {
+#         ipv4_address = "dhcp"
+#       }
+#     ]
+
+#     dns_servers     = ["8.8.8.8", "8.8.4.4"]
+#     enable_firewall = false
+#     firewall_rules  = []
+#     tags            = ["dev", "monitoring"]
+#   }
+# ]
 
 # Common tags for all resources
 tags = {

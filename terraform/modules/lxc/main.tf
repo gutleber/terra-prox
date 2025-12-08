@@ -3,17 +3,17 @@
 resource "proxmox_virtual_environment_container" "container" {
   node_name = var.node_name
   vm_id     = var.container_id
-  hostname  = var.container_name
 
-  # Operating system configuration
-  ostype = var.os_type
-  osversion = var.os_version
+  # Operating system configuration (REQUIRED)
+  operating_system {
+    template_file_id = var.template_file_id  # e.g., "local:vztmpl/ubuntu-22.04.tar.xz"
+    type            = var.os_type            # e.g., "ubuntu", "debian", "alpine"
+  }
 
   # Storage and resource allocation
-  root_filesystem {
-    storage      = var.storage
-    disk_size    = var.disk_size
-    volume_size  = var.volume_size
+  disk {
+    datastore_id = var.storage
+    size         = var.disk_size
   }
 
   cpu {
@@ -26,36 +26,48 @@ resource "proxmox_virtual_environment_container" "container" {
     swap      = var.memory_swap
   }
 
-  # Network configuration
-  dynamic "network_device" {
+  # Network configuration (CORRECT: network_interface, not network_device)
+  dynamic "network_interface" {
     for_each = var.network_devices
     content {
-      name     = network_device.value.name
-      bridge   = network_device.value.bridge
-      vlan_id  = network_device.value.vlan_id
+      name     = network_interface.value.name
+      bridge   = network_interface.value.bridge
+      vlan_id  = network_interface.value.vlan_id
       firewall = var.enable_firewall
     }
   }
 
-  # DNS configuration
-  dns {
-    servers = var.dns_servers
-  }
+  # Initialization block contains hostname, DNS, password, and SSH keys
+  initialization {
+    hostname = var.container_name
 
-  # Root user password (optional, use SSH keys instead)
-  dynamic "password" {
-    for_each = var.root_password != null ? [1] : []
-    content {
-      encrypted = false
-      value     = var.root_password
+    # DNS configuration (moved into initialization) - only create if dns_servers is not empty
+    dynamic "dns" {
+      for_each = length(var.dns_servers) > 0 ? [1] : []
+      content {
+        servers = var.dns_servers
+      }
     }
-  }
 
-  # SSH public keys
-  dynamic "ssh_public_keys" {
-    for_each = length(var.ssh_public_keys) > 0 ? [1] : []
-    content {
-      keys = var.ssh_public_keys
+    # IP configuration
+    dynamic "ip_config" {
+      for_each = var.ip_configs
+      content {
+        ipv4 {
+          address = ip_config.value.ipv4_address
+          gateway = ip_config.value.ipv4_gateway
+        }
+        ipv6 {
+          address = ip_config.value.ipv6_address
+          gateway = ip_config.value.ipv6_gateway
+        }
+      }
+    }
+
+    # User account (contains password and SSH keys - moved into initialization)
+    user_account {
+      keys     = var.ssh_public_keys
+      password = var.root_password
     }
   }
 
@@ -69,14 +81,14 @@ resource "proxmox_virtual_environment_container" "container" {
     }
   }
 
-  started = var.autostart
-  unprivileged = var.unprivileged
+  started       = var.autostart
+  unprivileged  = var.unprivileged
 
   tags = concat([var.container_name, "lxc"], var.tags)
 
   lifecycle {
     ignore_changes = [
-      password  # Don't manage password changes after creation
+      initialization  # Don't manage initialization changes after creation
     ]
   }
 }
@@ -106,14 +118,17 @@ resource "proxmox_virtual_environment_firewall_rules" "container_rules" {
   dynamic "rule" {
     for_each = var.firewall_rules
     content {
+      type        = rule.value.type
       action      = rule.value.action
-      direction   = rule.value.direction
-      interface   = rule.value.interface
-      protocol    = rule.value.protocol
-      port        = rule.value.port
-      source      = rule.value.source
-      destination = rule.value.destination
       comment     = rule.value.comment
+      source      = rule.value.source
+      dest        = rule.value.dest
+      proto       = rule.value.proto
+      dport       = rule.value.dport
+      sport       = rule.value.sport
+      iface       = rule.value.iface
+      log         = rule.value.log
+      enabled     = rule.value.enabled
     }
   }
 }

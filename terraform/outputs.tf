@@ -24,7 +24,6 @@ output "vms_created" {
       vm_id    = vm.vm_id
       vm_name  = vm.vm_name
       node     = vm.node_name
-      status   = vm.status
       ip_address = vm.ip_address
     }
   }
@@ -47,7 +46,6 @@ output "lxc_containers_created" {
       container_id   = container.container_id
       container_name = container.container_name
       node           = container.node_name
-      status         = container.status
       ip_address     = container.ip_address
     }
   }
